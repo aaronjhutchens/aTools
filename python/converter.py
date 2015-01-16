@@ -3,19 +3,26 @@ import sys
 
 def aaronBrackets ( aString ):
         counter = 0
+        fileCount = 0
+        file = open('output_'+str(fileCount)+'.JSON', 'w')
         for char in aString:
                 if char == '{':
-                        sys.stdout.write(char)
+                        file.write(char)
                         counter += 1
                 elif char == '}':
-                        if counter % 2 == 0:
-                                sys.stdout.write(char)
+                        if counter == 1:
+                                file.write(char + ']')
+                                file.close()
+                                file = open('output_' + str(fileCount) + '.JSON', 'w')
+                                fileCount += 1
                                 counter -= 1
-                        elif counter % 2 == 1:
-                                sys.stdout.write(char)
-                                sys.stdout.write("\n\n")
+                        else:
+                                file.write(char)
                                 counter -= 1
+
                 else:
-                        sys.stdout.write(char)
-print(aaronBrackets(open(sys.argv[1]).read().decode("utf8").encode("ascii")
+                        file.write(char)
+
+
+print(aaronBrackets(unicode(open(sys.argv[1]).read(), errors='ignore')))
 
