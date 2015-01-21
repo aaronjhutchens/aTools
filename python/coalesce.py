@@ -1,6 +1,11 @@
 #!/usr/bin/python
 # TODO:
-#       fix broken JSON parsing!
+#       Encapsulate functions into classes
+#       Make RFC specific allowances into proper polymorphism rather than hard coded regular expressions
+#       Implement more intelligent directory creation
+#       Fault tolerance.  Any would be nice, especially when working with the file system
+#       Etc.
+
 
 from os import listdir
 import sys, os, json, csv, re
@@ -30,7 +35,7 @@ def aaronBrackets ( aString ):
                                 subString += char + ']'
                                 subString = re.sub('^,', '[', str(subString))
                                 subString = re.sub(r'"workflow":{("workflowID":[0-9]*),"(name":".*?")},', r'\1,"RFC\2,', str(subString))
-                                subString = re.sub(r'{"name":(".*?"),"value":"(.*?)"},', r'{\1:"\2"},', str(subString))
+                                #subString = re.sub(r'{"name":(".*?"),"value":"(.*?)"},', r'{\1:"\2"},', str(subString))
                                 #print subString + "\n\n"
                                 json2csv(subString, fileName)
                                 subString = ""
@@ -103,7 +108,7 @@ class outFile:
 
         def addContent(self, oldFile):
                 if (oldFile.getHeader() == self.header):
-                        self.body += oldFile.getContent()
+                        self.body += re.sub(r'{u\'name\': u(\'.*?\'), u\'value\': u\'(.*?)\'}', r'\1:\2',oldFile.getContent())
 
         def writeContent(self):
                 with (open(self.title, 'w')) as outFile:
@@ -128,7 +133,7 @@ Now some logic.  Maybe implement some things. For reals yo.
 '''
 inFile = open(sys.argv[1]).read()
 
-if os.access('temp_json', os.W_OK):
+if os.access('temp_json', os.W_OK): # Needs some work here, probably a try-except. Also we need to generate a new directory other than 'temp_json'
         os.chdir('temp_json')
         aaronBrackets(str(unicode(inFile, errors='ignore')))
 else:
