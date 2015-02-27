@@ -1,0 +1,103 @@
+#!/bin/bash
+shopt -s extglob
+PASSWD=/var/yp/passwd
+YP_DIR=/var/yp/
+MAX_UID=0
+USERNAME=''
+REAL_NAME=''
+GROUP_ID=1010
+UIDS=( $(awk -F: '$3 ~ /^1[34]/ && length($3) < 6 {print $3}' $PASSWD) )
+
+debug(){
+        echo $PASSWD
+        echo $YP_DIR
+        echo $CURRENT_UID
+        echo $NEW_UID
+        echo $USERNAME
+        echo $REAL_NAME
+        echo $NEW_UNIQUE
+        echo $CURRENT_UNIQUE
+        echo $PASSWD_ENTRY
+}
+
+while getopts ":u:n:f:g:" opt; do
+        case $opt in
+                u)
+                        USERNAME="$OPTARG"
+                        ;;
+                n)
+                        REAL_NAME="$OPTARG"
+                        ;;
+                f)
+                        PASSWD="$OPTARG"
+                        ;;
+                g)
+                        GROUP_ID="$OPTARG"
+                        ;;
+                \?)
+                        echo "Invalid option"
+                        ;;
+                :)
+                        echo "Option requires an argument"
+                        ;;
+        esac
+done
+
+get_user_details(){
+# If not set by options, set username and real name
+        if [ -z "$USERNAME" ]
+        then
+                read -p "Enter the user's username: " USERNAME
+        fi
+
+        if [ -z "$REAL_NAME" ]
+        then
+                read -p "Enter the user's real name: " REAL_NAME
+        fi
+
+        for i in ${UIDS[@]}; do
+                ((i > MAX_UID)) && MAX_UID=$i
+        done
+
+        CURRENT_UID=$MAX_UID
+        NEW_UID=$[ $MAX_UID + 1 ]
+}
+
+
+sanity_checks(){
+# Kill the stupid and broken.
+        CURRENT_UNIQUE=$(grep -c ":$CURRENT_UID:" $PASSWD)
+        NEW_UNIQUE=$(grep -c ":$NEW_UID:" $PASSWD)
+
+        if [ "$CURRENT_UNIQUE" -ne 1 ] || [ "$NEW_UNIQUE" -ne 0 ]
+        then
+                echo "There is something wrong with the chosen UID,
+                please enter the passwd line manually and check to see what's going on here"
+                exit 1
+        fi
+
+}
+
+gen_passwd(){
+        PASSWD_ENTRY="$USERNAME:x:$NEW_UID:$GROUP_ID:$REAL_NAME,,,:/home/$USERNAME:/bin/bash"
+}
+
+put_passwd(){
+        regexYes='^[Yy][Ee]?[Ss]?'
+        echo -en "\nAdding the following line to $PASSWD:\n\n$PASSWD_ENTRY\n\n"
+        read -p "Does this look correct?" yes_no
+        if [[ $yes_no = *(Y|y) ]]
+        then
+                sed '/'$CURRENT_UID'/ a\
+'"$PASSWD_ENTRY"'' $PASSWD > .tmp && cat .tmp > $PASSWD && rm -f .tmp
+        else
+                echo "Exiting"
+                exit 1
+        fi
+}
+get_user_details
+gen_passwd
+sanity_checks
+put_passwd
+#debug
+
