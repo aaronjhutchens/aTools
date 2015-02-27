@@ -1,6 +1,9 @@
 #!/bin/bash
+# Written for Solaris, which is important.
+
 shopt -s extglob
 PASSWD=/var/yp/passwd
+SHADOW=/var/yp/shadow
 YP_DIR=/var/yp/
 MAX_UID=0
 USERNAME=''
@@ -20,7 +23,7 @@ debug(){
         echo $PASSWD_ENTRY
 }
 
-while getopts ":u:n:f:g:" opt; do
+while getopts ":u:n:f:g:s:" opt; do
         case $opt in
                 u)
                         USERNAME="$OPTARG"
@@ -33,6 +36,9 @@ while getopts ":u:n:f:g:" opt; do
                         ;;
                 g)
                         GROUP_ID="$OPTARG"
+                        ;;
+                s)
+                        SHADOW="$OPTARG"
                         ;;
                 \?)
                         echo "Invalid option"
@@ -82,22 +88,53 @@ gen_passwd(){
         PASSWD_ENTRY="$USERNAME:x:$NEW_UID:$GROUP_ID:$REAL_NAME,,,:/home/$USERNAME:/bin/bash"
 }
 
-put_passwd(){
-        regexYes='^[Yy][Ee]?[Ss]?'
-        echo -en "\nAdding the following line to $PASSWD:\n\n$PASSWD_ENTRY\n\n"
+gen_shadow(){
+        SHADOW_ENTRY="$USERNAME::0::::::"
+}
+
+put_shadow(){
+        echo -en "\nAdding the following to $SHADOW:\n\n$SHADOW_ENTRY\n\n"
         read -p "Does this look correct?" yes_no
+
         if [[ $yes_no = *(Y|y) ]]
         then
-                sed '/'$CURRENT_UID'/ a\
-'"$PASSWD_ENTRY"'' $PASSWD > .tmp && cat .tmp > $PASSWD && rm -f .tmp
+                echo $SHADOW_ENTRY >> $SHADOW
+                echo "Line added, here is raw output from grep:"
+                grep $NEW_UID $SHADOW
         else
                 echo "Exiting"
                 exit 1
         fi
 }
+put_passwd(){
+        regexYes='^[Yy][Ee]?[Ss]?'
+        echo -en "\nAdding the following line to $PASSWD:\n\n$PASSWD_ENTRY\n\n"
+        read -p "Does this look correct?" yes_no
+
+        if [[ $yes_no = *(Y|y) ]]
+        then
+                sed '/'$CURRENT_UID'/ a\
+'"$PASSWD_ENTRY"'' $PASSWD > .tmp && cat .tmp > $PASSWD && rm -f .tmp
+        echo "Line added, here is raw output from grep:"
+        grep $NEW_UID $PASSWD
+        else
+                echo "Exiting"
+                exit 1
+        fi
+}
+
+run_make(){
+        pushd $YP_DIR
+        /usr/ccs/bin/make
+        popd
+}
+
 get_user_details
 gen_passwd
+gen_shadow
 sanity_checks
 put_passwd
+put_shadow
+run_make
 #debug
 
