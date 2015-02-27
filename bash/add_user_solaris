@@ -107,7 +107,6 @@ put_shadow(){
         fi
 }
 put_passwd(){
-        regexYes='^[Yy][Ee]?[Ss]?'
         echo -en "\nAdding the following line to $PASSWD:\n\n$PASSWD_ENTRY\n\n"
         read -p "Does this look correct?" yes_no
 
