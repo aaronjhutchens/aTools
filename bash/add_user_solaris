@@ -10,7 +10,8 @@ MAX_UID=0
 USERNAME=''
 REAL_NAME=''
 GROUP_ID=1010
-UIDS=( $(awk -F: '$3 ~ /^1[34]/ && length($3) < 6 {print $3}' $PASSWD) )
+LOCKFILE="/tmp/UserTmpLock"
+INTERACTIVE=1
 
 debug(){
         echo $PASSWD
@@ -34,10 +35,12 @@ print_help(){
         echo -en "\t-f <passwd file>\tOverrides default passwd file path (default: /var/yp/passwd)\n"
         echo -en "\t-s <shadow file>\tOverrides default shadow file path (default: /var/yp/shadow)\n"
         echo -en "\t-g <GID>\t\tOverrides default group ID (default: 1010)\n"
+        echo -en "\t-i\t\t\tSet non-interactive mode (no prompts)\n"
+        echo -en "\t-m\t\t\tDry run (no make)\n"
         echo -en "\t-h\t\t\tPrints this help document\n\n"
 }
 
-while getopts ":u:n:f:g:s:h" opt; do
+while getopts ":u:n:f:g:s:him" opt; do
         case $opt in
                 u)
                         USERNAME="$OPTARG"
@@ -58,6 +61,14 @@ while getopts ":u:n:f:g:s:h" opt; do
                         usage
                         print_help
                         exit 0
+                        ;;
+                i)
+                        INTERACTIVE=0
+                        echo "Setting to non-interactive mode!"
+                        ;;
+                m)
+                        echo "Doing a dry run."
+                        DRY_RUN=1
                         ;;
                 \?)
                         echo "Invalid option"
@@ -84,6 +95,7 @@ get_user_details(){
                 read -p "Enter the user's real name: " REAL_NAME
         fi
 
+        UIDS=( $(awk -F: '$3 ~ /^1[34]/ && length($3) < 6 {print $3}' $PASSWD) )
         for i in ${UIDS[@]}; do
                 ((i > MAX_UID)) && MAX_UID=$i
         done
@@ -123,9 +135,9 @@ gen_shadow(){
 
 put_shadow(){
         echo -en "\nAdding the following to $SHADOW:\n\n$SHADOW_ENTRY\n\n"
-        read -p "Does this look correct? " yes_no
+        (( $INTERACTIVE )) && read -p "Does this look correct? " yes_no
 
-        if [[ ${yes_no:0:1} = *(Y|y) ]]
+        if [[ ${yes_no:0:1} = *(Y|y) ]] || [[ $INTERACTIVE -eq 0 ]]
         then
                 echo $SHADOW_ENTRY >> $SHADOW
                 echo "[ $(date +"%m-%d-%y %T") ] Line added to $SHADOW: $SHADOW_ENTRY" >> $LOGFILE
@@ -136,9 +148,9 @@ put_shadow(){
 }
 put_passwd(){
         echo -en "\nAdding the following line to $PASSWD:\n\n$PASSWD_ENTRY\n\n"
-        read -p "Does this look correct? " yes_no
+        (( $INTERACTIVE )) && read -p "Does this look correct? " yes_no
 
-        if [[ ${yes_no:0:1} = *(Y|y) ]]
+        if [[ ${yes_no:0:1} = *(Y|y) ]] || [[ $INTERACTIVE -eq 0 ]]
         then
                 sed '/'$CURRENT_UID'/ a\
 '"$PASSWD_ENTRY"'' $PASSWD > .tmp && cat .tmp > $PASSWD && rm -f .tmp
@@ -152,19 +164,53 @@ put_passwd(){
 }
 
 run_make(){
-        pushd $YP_DIR
-        echo "[ $(date +"%m-%d-%y %T") ] Running make:" >> $LOGFILE
-        /usr/ccs/bin/make 2>&1 |tee -a $LOGFILE
-        echo "[ $(date +"%m-%d-%y %T") ] Make complete" >> $LOGFILE
-        popd
+        if [[ "$DRY_RUN" -ne 1 ]]
+        then
+                pushd $YP_DIR
+                echo "[ $(date +"%m-%d-%y %T") ] Running make:" >> $LOGFILE
+                #/usr/ccs/bin/make 2>&1 |tee -a $LOGFILE
+                echo "[ $(date +"%m-%d-%y %T") ] Make complete" >> $LOGFILE
+                popd
+        else
+                echo "Dry run, not running make!"
+        fi
+        }
+
+make_lock(){
+        echo "Locking execution!"
+        trap clean_lock INT TERM EXIT
+        #trap "echo 'Exiting prematurely, removing lock file!'; rm -f $LOCKFILE; exit" INT TERM EXIT
+        touch $LOCKFILE
 }
 
-get_user_details
-gen_passwd
-gen_shadow
-sanity_checks
-put_passwd
-put_shadow
-#run_make
-#debug
+check_lock(){
+        if [[ -e $LOCKFILE ]]
+        then
+                return 1
+        else
+                return 0
+        fi
+}
+
+clean_lock(){
+        echo "Removing lock: $LOCKFILE"
+        rm -f $LOCKFILE
+}
+
+if [[ check_lock -eq 0 ]]
+then
+        make_lock
+        get_user_details
+        gen_passwd
+        gen_shadow
+        sanity_checks
+        put_passwd
+        put_shadow
+        run_make
+        #debug
+        exit 0
+else
+        echo -en "\n\nLock file exists at $LOCKFILE\n\nExiting!"
+        exit 1
+fi
 
