@@ -26,7 +26,7 @@ debug(){
 }
 
 usage(){
-        echo -en "\nUsage: ./addHorizonUser -u <new username> -n <real name> [-fgsh]\n"
+        echo -en "\nUsage: ./addUser -u <new username> -n <real name> [-fgsh]\n"
 }
 
 print_help(){
