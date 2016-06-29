@@ -10,6 +10,7 @@ print "Loading old file: ", oldFile
 oldWs = openpyxl.load_workbook(oldFile).active
 print "Loading new file: ", newFile
 newWs = openpyxl.load_workbook(newFile).active
+found = False
 
 destFile = "postComparison_" + time.strftime("%m_%d_%y") + ".xlsx"
 wb = Workbook()
@@ -26,8 +27,12 @@ totalOldCols = oldWs.max_column
 
 def delta(oldValue, newValue):
     "Simply returns a difference"
-    value = newValue - oldValue
-    return value
+    try:
+        value = float(newValue - oldValue)
+        return value
+    except TypeError:
+        value = "NaN"
+        return value
 
 def deltaPercent(oldValue, newValue):
     "Returns percent increase/decrease"
@@ -35,8 +40,12 @@ def deltaPercent(oldValue, newValue):
         print "Divide by zero!"
         value = "div/0"
     else:
-        value = newValue / oldValue * 100
-    return value
+        try:
+            value = float(newValue / oldValue * 100)
+            return value
+        except TypeError:
+            value = "NaN"
+            return value
 
 
 for newRow in range(1, totalNewRows + 1):
@@ -60,14 +69,14 @@ for newRow in range(1, totalNewRows + 1):
                     ws.cell(row=col, column=2).value = oldWs.cell(row=oldRow, column=(col)).value
                     ws.cell(row=(col - 1), column=5).value = newWs.cell(row=newRow, column=(col - 1)).value
 
-                    #print col
-                    #if col > 3:
-                    #    ws.cell(row=col, column=3).value = delta(oldWs.cell(row=oldRow, column=(col)).value, newWs.cell(row=oldRow, column=(col)).value)
-                    #    ws.cell(row=col, column=4).value = deltaPercent(oldWs.cell(row=oldRow, column=(col)).value, newWs.cell(row=oldRow, column=(col)).value)
+                    if col > 3:
+                        print col
+                        ws.cell(row=col, column=3).value = delta(oldWs.cell(row=oldRow, column=(col)).value, newWs.cell(row=oldRow, column=(col)).value)
+                        ws.cell(row=col, column=4).value = deltaPercent(oldWs.cell(row=oldRow, column=(col)).value, newWs.cell(row=oldRow, column=(col)).value)
 
 
-            #if found == False:
-            #    print "No matching values found for ", newName, oldName
+            if found == False:
+                print "No matching values found for ", newName, oldName
 
 wb.remove_sheet(wb.get_sheet_by_name("Sheet"))
 wb.save(filename = destFile)
