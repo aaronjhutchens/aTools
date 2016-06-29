@@ -28,24 +28,28 @@ totalOldCols = oldWs.max_column
 def delta(oldValue, newValue):
     "Simply returns a difference"
     try:
+        float(newValue)
+        float(oldValue)
         value = float(newValue - oldValue)
         return value
-    except TypeError:
+    except (ValueError, TypeError):
         value = "NaN"
-        return value
+    return value
 
 def deltaPercent(oldValue, newValue):
     "Returns percent increase/decrease"
     if oldValue == 0:
-        print "Divide by zero!"
+        #print "Divide by zero!"
         value = "div/0"
     else:
         try:
-            value = float(newValue / oldValue * 100)
+            float(newValue)
+            float(oldValue)
+            value = float((newValue - oldValue) / oldValue * 100)
             return value
-        except TypeError:
+        except (ValueError, TypeError):
             value = "NaN"
-            return value
+    return value
 
 
 for newRow in range(1, totalNewRows + 1):
@@ -67,12 +71,15 @@ for newRow in range(1, totalNewRows + 1):
                 for col in range(2, totalOldCols):
                     ws.cell(row=col, column=1).value = oldWs.cell(row=1, column=(col)).value
                     ws.cell(row=col, column=2).value = oldWs.cell(row=oldRow, column=(col)).value
-                    ws.cell(row=(col - 1), column=5).value = newWs.cell(row=newRow, column=(col - 1)).value
+                    if col > 2:
+                        ws.cell(row=(col - 1), column=5).value = newWs.cell(row=newRow, column=(col - 1)).value
 
                     if col > 3:
-                        print col
-                        ws.cell(row=col, column=3).value = delta(oldWs.cell(row=oldRow, column=(col)).value, newWs.cell(row=oldRow, column=(col)).value)
-                        ws.cell(row=col, column=4).value = deltaPercent(oldWs.cell(row=oldRow, column=(col)).value, newWs.cell(row=oldRow, column=(col)).value)
+                        #print col
+                        oldValue = oldWs.cell(row=oldRow, column=(col)).value
+                        newValue = newWs.cell(row=newRow, column=(col)).value
+                        ws.cell(row=col, column=3).value = delta(oldValue, newValue)
+                        ws.cell(row=col, column=4).value = deltaPercent(oldValue, newValue)
 
 
             if found == False:
